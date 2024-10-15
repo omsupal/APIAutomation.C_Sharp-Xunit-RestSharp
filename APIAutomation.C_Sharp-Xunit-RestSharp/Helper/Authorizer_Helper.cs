@@ -37,7 +37,7 @@ namespace APIAutomation.Helper
     {
         private static Authorizer_Helper login_Page;
         private static IWebDriver driver;
-        static string API_URL = "https://sts.api.traveazy.me/v1/credentials";
+        static string API_URL = "AuthAPIURL";
 
         public static IWebDriver WEBDRIVER { get; set; }
 
@@ -81,7 +81,7 @@ namespace APIAutomation.Helper
             SETUP();
             driver = WEBDRIVER;
             login_Page = new Authorizer_Helper(driver);
-            string URL = $"https://login.traveazy.me/auth/en-sa?apptoken={apptoken}";
+            string URL = $"LOGIN_BASE_URL?apptoken={apptoken}";
             string AuthCode = OpenBroswer(URL, username, password);
             string[] cred = credentials.Split(':');
             Method HTTP_METHOD = Method.POST;
@@ -119,14 +119,20 @@ namespace APIAutomation.Helper
             client.AddDefaultHeader("Authorization", token);
             //var Request = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "DataFiles/Helper", "Request_STS_API.json"));
 
-            JObject req = new JObject();
-            req["DomainName"] = "";
-            req["AuthCode"] = "";
-            req["DeviceSignature"] = "website";
-            req["DomainName"] = DomainName;
+            var req = new
+            {
+                AuthCode = "",
+                DeviceSignature = "website",
+                DomainName = DomainName
+            };
             request.AddJsonBody(req);
 
             IRestResponse response = client.Execute(request);
+            if (!response.IsSuccessful)
+            {
+                throw new Exception($"Error retrieving access token: {response.StatusCode} - {response.ErrorMessage}");
+            }
+
             JObject validResponse = JObject.Parse(response.Content);
             string AccessToken = validResponse.GetValue("Response").SelectToken("AccessToken").ToString();
 

@@ -8,7 +8,7 @@ using Xunit;
 
 namespace APIAutomation.Helper
 {
-    class Services_Helper: IClassFixture<TestFixture>
+    class Services_Helper : IClassFixture<TestFixture>
     {
         private readonly TestFixture myTestFixture;
         RestRequest request;
@@ -32,5 +32,69 @@ namespace APIAutomation.Helper
             double roe = validResponse["Response"][0]["Value"].ToObject<double>();
             return roe;
         }
+
+
+        public void SetupRequest<T>(Method httpMethod, string affiliateId, string apiUrl, string appToken, string appSecret, string filePath, out RestClient client, out RestRequest request, out T? requestContract) where T : class
+        {
+            client = new RestClient(apiUrl);
+            request = new RestRequest(httpMethod);
+
+            // Generate the OAuth token
+            string token = Hme.OAuth.TokenManger.GenerateOAuthToken(httpMethod.ToString(), apiUrl, affiliateId, appToken, appSecret);
+
+            client.AddDefaultHeader("Authorization", token);
+            client.Timeout = myTestFixture.TIME_OUT;
+
+            // If filePath is provided, read the request body and deserialize it
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                var req = File.ReadAllText(Path.Combine(System.Environment.CurrentDirectory, filePath));
+                requestContract = JsonConvert.DeserializeObject<T>(req);
+            }
+            else
+            {
+                requestContract = null;
+            }
+        }
+
+        // Usage Example with requestContract
+        public void PreReqWithContract()
+        {
+            RequestContract? requestContract;
+            SetupRequest<RequestContract>(
+                Method.POST,
+                myTestFixture.API_URL,
+                myTestFixture.AFFILIATE_ID,
+                myTestFixture.APP_TOKEN,
+                myTestFixture.APP_SECRET,
+                "DataFiles/transferlisting.json",
+                out client,
+                out request,
+                out requestContract
+            );
+        }
+
+        // Usage Example without requestContract
+        public void PreReqWithoutContract()
+        {
+            SetupRequest<object>(
+                Method.POST,
+                myTestFixture.API_URL,
+                myTestFixture.AFFILIATE_ID,
+                myTestFixture.APP_TOKEN,
+                myTestFixture.APP_SECRET,
+                null, // No request body
+                out client,
+                out request,
+                out _ // Ignoring the requestContract
+            );
+        }
+
+    }
+
+    //The Request Contract class is for reference,
+    //You can create Model for your API Request/Response
+    internal class RequestContract
+    {
     }
 }
