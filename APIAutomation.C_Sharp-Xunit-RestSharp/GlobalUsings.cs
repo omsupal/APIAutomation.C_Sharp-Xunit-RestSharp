@@ -18,3 +18,7 @@ global using System.Net.Http;
 global using System.Net.Http.Headers;
 global using System.Security.Cryptography;
 global using System.Web;
+global using APIAutomation.Helper;
+global using System.Xml.Serialization;
+global using MongoDB.Bson;
+global using MongoDB.Driver;
