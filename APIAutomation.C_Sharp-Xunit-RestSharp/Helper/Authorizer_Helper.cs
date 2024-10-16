@@ -1,168 +1,148 @@
-﻿using Newtonsoft.Json.Linq;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
-using RestSharp;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
-using WebDriverManager;
-using WebDriverManager.DriverConfigs.Impl;
+﻿
+
 
 namespace APIAutomation.Helper
 {
-    class Authorizer_Helper
+    public class OAuthTokenManager
     {
-        private IWebDriver driver;
-        private WebDriverWait wait;
-        public Authorizer_Helper(IWebDriver driver)
-        {
-            this.driver = driver;
-            wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-        }
-
-        public void Login(string username, string password)
-        {
-            IWebElement Usernamefield = driver.FindElement(By.Id("logonIdentifier"));
-            IWebElement Passwordfield = driver.FindElement(By.Id("password"));
-            IWebElement Loginbutton = driver.FindElement(By.Id("next"));
-            Usernamefield.SendKeys(username);
-            Passwordfield.SendKeys(password);
-            Loginbutton.Click();
-            Thread.Sleep(500);
-        }
-    }
-    public static class Login
-    {
-        private static Authorizer_Helper login_Page;
-        private static IWebDriver driver;
-        static string API_URL = "AuthAPIURL";
-
-        public static IWebDriver WEBDRIVER { get; set; }
-
         /// <summary>
-        /// This Method will be used to setup the headless browser
+        /// Generates an OAuth 1.0a authorization header for making authorized API requests.
         /// </summary>
-        public static void SETUP()
+        /// <param name="httpMethod">The HTTP method used for the request (e.g., GET, POST).</param>
+        /// <param name="url">The URL of the API request.</param>
+        /// <param name="consumerKey">The OAuth consumer key (client ID).</param>
+        /// <param name="consumerSecret">The OAuth consumer secret (client secret).</param>
+        /// <param name="accessToken">The OAuth access token for user authorization.</param>
+        /// <param name="tokenSecret">The token secret for the access token (optional, may be empty).</param>
+        /// <returns>The OAuth 1.0a Authorization header string.</returns>
+        public string GenerateOAuthHeader(string httpMethod, string url, string consumerKey, string consumerSecret, string accessToken, string tokenSecret)
         {
-            ChromeOptions options = new ChromeOptions();
-            options.AddArgument("--headless");
-            options.AddArgument("--window-size=1920x1080");
-            options.AddArgument("--disable-gpu");
-            new DriverManager().SetUpDriver(new ChromeConfig());
-            WEBDRIVER = new ChromeDriver(options);
-        }
+            // OAuth parameters
+            string oauth_version = "1.0";
+            string oauth_signature_method = "HMAC-SHA1";
+            string oauth_nonce = GenerateNonce();
+            string oauth_timestamp = GenerateTimeStamp();
 
-        /// <summary>
-        /// This Method will be used to open the headless browser
-        /// It will Navigate to Given Url
-        /// return <param name="AuthCode"></param>
-        /// </summary
-        public static string OpenBroswer(string URL, string userName, string password)
-        {
-            driver.Navigate().GoToUrl(URL);
-            Thread.Sleep(500);
-            login_Page.Login(userName, password);
-            Thread.Sleep(500);
-            string ReturnUrl = driver.Url;
-            string[] parts = ReturnUrl.Split('=');
-            string url = parts[0];
-            string AuthCode = parts[1];
-            Console.WriteLine(AuthCode);
-            return AuthCode;
-        }
-
-        /// <summary>
-        /// Method used to get AccessToken ater Login with Username
-        /// </summary>
-        public static string GetAccessToken(string apptoken, string username, string password, string credentials)
-        {
-            SETUP();
-            driver = WEBDRIVER;
-            login_Page = new Authorizer_Helper(driver);
-            string URL = $"LOGIN_BASE_URL?apptoken={apptoken}";
-            string AuthCode = OpenBroswer(URL, username, password);
-            string[] cred = credentials.Split(':');
-            Method HTTP_METHOD = Method.POST;
-            RestClient client = new RestClient(API_URL);
-            RestRequest request = new RestRequest(HTTP_METHOD);
-            string token = Hme.OAuth.TokenManger.GenerateOAuthToken(HTTP_METHOD.ToString(), API_URL, cred[0], cred[1], cred[2]);
-            client.AddDefaultHeader("Authorization", token);
-            //var Request = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "DataFiles/Helper", "Request_STS_API.json"));
-
-            JObject req = new JObject();
-            req["DomainName"] = "";
-            req["AuthCode"] = "";
-            req["DeviceSignature"] = "website";
-
-            req["AuthCode"] = AuthCode;
-            request.AddJsonBody(req);
-
-            IRestResponse response = client.Execute(request);
-            JObject validResponse = JObject.Parse(response.Content);
-            string AccessToken = validResponse.GetValue("Response").SelectToken("AccessToken").ToString();
-            WEBDRIVER.Quit();
-            return AccessToken;
-        }
-
-        /// <summary>
-        /// Method used to get AccessToken using Domain Name
-        /// </summary>
-        public static string GetAccessTokenWithDomain(string DomainName, string credentials)
-        {
-            string[] cred = credentials.Split(':');
-            Method HTTP_METHOD = Method.POST;
-            RestClient client = new RestClient(API_URL);
-            RestRequest request = new RestRequest(HTTP_METHOD);
-            string token = Hme.OAuth.TokenManger.GenerateOAuthToken(HTTP_METHOD.ToString(), API_URL, cred[0], cred[1], cred[2]);
-            client.AddDefaultHeader("Authorization", token);
-            //var Request = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "DataFiles/Helper", "Request_STS_API.json"));
-
-            var req = new
+            // Create the base signature string
+            var parameters = new SortedDictionary<string, string>
             {
-                AuthCode = "",
-                DeviceSignature = "website",
-                DomainName = DomainName
+                { "oauth_consumer_key", consumerKey },
+                { "oauth_token", accessToken },
+                { "oauth_signature_method", oauth_signature_method },
+                { "oauth_timestamp", oauth_timestamp },
+                { "oauth_nonce", oauth_nonce },
+                { "oauth_version", oauth_version }
             };
-            request.AddJsonBody(req);
 
-            IRestResponse response = client.Execute(request);
-            if (!response.IsSuccessful)
+            // Generate the base string for signature
+            string baseString = GenerateBaseString(httpMethod, url, parameters);
+
+            // Generate the OAuth signature
+            string signature = GenerateSignature(baseString, consumerSecret, tokenSecret);
+
+            // Add the signature to the parameters
+            parameters.Add("oauth_signature", signature);
+
+            // Build the Authorization header
+            return GenerateAuthorizationHeader(parameters);
+        }
+
+        /// <summary>
+        /// Generates a Basic Authentication header for API requests.
+        /// </summary>
+        /// <param name="username">The username or client ID for authentication.</param>
+        /// <param name="password">The password or client secret for authentication.</param>
+        /// <returns>The Basic Authorization header string.</returns>
+        public string GenerateBasicAuthHeader(string username, string password)
+        {
+            string credentials = $"{username}:{password}";
+            string base64Credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes(credentials));
+            return $"Basic {base64Credentials}";
+        }   
+    
+        /// <summary>
+        /// Generates the base string used for the OAuth 1.0a signature calculation.
+        /// </summary>
+        /// <param name="httpMethod">The HTTP method (e.g., GET, POST).</param>
+        /// <param name="url">The request URL.</param>
+        /// <param name="parameters">The sorted dictionary of OAuth parameters.</param>
+        /// <returns>The base string used to generate the OAuth signature.</returns>
+        private string GenerateBaseString(string httpMethod, string url, SortedDictionary<string, string> parameters)
+        {
+            var uri = new Uri(url);
+            var query = HttpUtility.ParseQueryString(uri.Query);
+            foreach (var key in query.AllKeys)
             {
-                throw new Exception($"Error retrieving access token: {response.StatusCode} - {response.ErrorMessage}");
+                parameters.Add(key, query[key]);
             }
 
-            JObject validResponse = JObject.Parse(response.Content);
-            string AccessToken = validResponse.GetValue("Response").SelectToken("AccessToken").ToString();
+            StringBuilder parameterString = new StringBuilder();
+            foreach (var item in parameters)
+            {
+                parameterString.AppendFormat("{0}={1}&", item.Key, Uri.EscapeDataString(item.Value));
+            }
 
-            return AccessToken;
+            // Remove the last '&'
+            parameterString.Length--;
+
+            string baseString = $"{httpMethod.ToUpper()}&{Uri.EscapeDataString(url)}&{Uri.EscapeDataString(parameterString.ToString())}";
+            return baseString;
         }
 
         /// <summary>
-        /// Method used to get AccessToken without Auth and domain.
+        /// Generates the OAuth 1.0a signature using HMAC-SHA1.
         /// </summary>
-        public static string GetAccessTokenNoAuth(string credentials)
+        /// <param name="baseString">The base string to be signed.</param>
+        /// <param name="consumerSecret">The consumer secret (client secret).</param>
+        /// <param name="tokenSecret">The token secret (can be empty).</param>
+        /// <returns>The generated OAuth signature as a Base64 string.</returns>
+        private string GenerateSignature(string baseString, string consumerSecret, string tokenSecret)
         {
-            string[] cred = credentials.Split(':');
-            Method HTTP_METHOD = Method.POST;
-            RestClient client = new RestClient(API_URL);
-            RestRequest request = new RestRequest(HTTP_METHOD);
-            string token = Hme.OAuth.TokenManger.GenerateOAuthToken(HTTP_METHOD.ToString(), API_URL, cred[0], cred[1], cred[2]);
-            client.AddDefaultHeader("Authorization", token);
-            //var Request = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "DataFiles/Helper", "Request_STS_API.json"));
+            string signingKey = $"{Uri.EscapeDataString(consumerSecret)}&{Uri.EscapeDataString(tokenSecret)}";
 
-            JObject req = new JObject();
-            req["DomainName"] = "";
-            req["AuthCode"] = "";
-            req["DeviceSignature"] = "website";
-            request.AddJsonBody(req);
+            using (var hasher = new HMACSHA1(Encoding.ASCII.GetBytes(signingKey)))
+            {
+                byte[] hashBytes = hasher.ComputeHash(Encoding.ASCII.GetBytes(baseString));
+                return Convert.ToBase64String(hashBytes);
+            }
+        }
 
-            IRestResponse response = client.Execute(request);
-            JObject validResponse = JObject.Parse(response.Content);
-            string AccessToken = validResponse.GetValue("Response").SelectToken("AccessToken").ToString();
+        /// <summary>
+        /// Builds the OAuth 1.0a Authorization header using the given parameters.
+        /// </summary>
+        /// <param name="parameters">The sorted dictionary of OAuth parameters including the signature.</param>
+        /// <returns>The OAuth Authorization header string.</returns>
+        private string GenerateAuthorizationHeader(SortedDictionary<string, string> parameters)
+        {
+            StringBuilder header = new StringBuilder("OAuth ");
+            foreach (var item in parameters)
+            {
+                header.AppendFormat("{0}=\"{1}\", ", item.Key, Uri.EscapeDataString(item.Value));
+            }
+            // Remove the last ', '
+            header.Length -= 2;
+            return header.ToString();
+        }
 
-            return AccessToken;
+        /// <summary>
+        /// Generates a unique nonce for the OAuth 1.0a request.
+        /// A nonce is a random string that is used only once for each request to ensure uniqueness.
+        /// </summary>
+        /// <returns>A unique nonce string.</returns>
+        private string GenerateNonce()
+        {
+            return Convert.ToBase64String(new ASCIIEncoding().GetBytes(DateTime.Now.Ticks.ToString()));
+        }
+
+        /// <summary>
+        /// Generates a timestamp in seconds since the Unix epoch (January 1, 1970).
+        /// The timestamp is used to indicate the time the OAuth request is created.
+        /// </summary>
+        /// <returns>The timestamp as a string.</returns>
+        private string GenerateTimeStamp()
+        {
+            return Convert.ToInt64((DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds).ToString();
         }
     }
 }
+

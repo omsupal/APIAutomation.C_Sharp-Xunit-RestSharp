@@ -1,5 +1,4 @@
 ﻿using APIAutomation.Helper;
-using Hme.GemStore;
 using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;

@@ -13,8 +13,6 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.Core" Version="3.7.400.32" />
     <PackageReference Include="AWSSDK.Lambda" Version="3.7.400.32" />
-    <PackageReference Include="Hme.GemStore" Version="2.0.0.4" />
-    <PackageReference Include="Hme.OAuth" Version="1.0.0.11" />
     <PackageReference Include="MongoDB.Driver" Version="2.12.3" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.14" />
     <PackageReference Include="RestSharp" Version="106.11.7" />
@@ -22,6 +20,8 @@
     <PackageReference Include="Selenium.WebDriver" Version="4.9.1" />
     <PackageReference Include="WebDriverManager" Version="2.16.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.65.0" />
+    <PackageReference Include="DotNetOpenAuth.OAuth2.Core" Version="4.3.4.13329" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

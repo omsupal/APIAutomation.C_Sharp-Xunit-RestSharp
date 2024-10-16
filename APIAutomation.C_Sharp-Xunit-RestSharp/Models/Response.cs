@@ -22,9 +22,6 @@ namespace APIAutomation.Models
     /// </summary>
     public class Context
     {
-        //[JsonProperty("CountryCode", Required = Required.AllowNull)]
-
-        public string CountryCode { get; set; }
         [JsonProperty("TrackToken", Required = Required.Always)]
 
         public string TrackToken { get; set; }

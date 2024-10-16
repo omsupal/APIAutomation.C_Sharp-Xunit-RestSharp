@@ -1,5 +1,4 @@
-﻿using Hme.GemStore;
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -13,10 +12,10 @@ namespace APIAutomation.Helper
 
         static Mongo_Helper()
         {
-            string conn = ParameterStore.Instance["TODO:REPLACE_PMS_KEY_MONGOCONNECTION"].ToString();
+            string conn = "mongoconnection String";
             MongoClient mongoClient = new MongoClient(conn); // reader connection string
-            IMongoDatabase mongoDatabase = mongoClient.GetDatabase("QAUmrahv2");  //Database name
-            mongoCollection = mongoDatabase.GetCollection<BsonDocument>("Collection"); //add your collction name here
+            IMongoDatabase mongoDatabase = mongoClient.GetDatabase("Database Name");  //Database name
+            mongoCollection = mongoDatabase.GetCollection<BsonDocument>("Collection name"); //add your collction name here
         }
 
         /// <summary>
